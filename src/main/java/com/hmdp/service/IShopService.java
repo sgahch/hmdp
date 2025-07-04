@@ -40,4 +40,19 @@ public interface IShopService extends IService<Shop> {
      * @return {@link Result}
      */
     Result queryShopByType(Integer typeId, Integer current, Double x, Double y);
+
+    /**
+     * 调试Redis GEO数据
+     *
+     * @param typeId 商铺类型ID
+     * @return {@link Result}
+     */
+    Result debugGeoData(Integer typeId);
+
+    /**
+     * 初始化Redis GEO数据
+     *
+     * @return {@link Result}
+     */
+    Result initGeoData();
 }

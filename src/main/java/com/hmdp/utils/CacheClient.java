@@ -123,10 +123,23 @@ public class CacheClient {
         String key = keyPrefix + id;
         //从redis中查询
         String json = stringRedisTemplate.opsForValue().get(key);
-        //判断是否存在
-        if (StringUtils.isEmpty(json)) {
-            //不存在返回空
-            return null;
+        // 判断是否存在
+        if (StringUtils.isEmpty(json)) { // <--- 缓存未命中时进入此分支
+            // 不存在，尝试从数据库查询
+            R r = dbFallback.apply(id); // 调用Function从数据库查询数据
+
+            // 如果数据库中也不存在，缓存空值以防止缓存穿透
+            if (r == null) {
+                // 缓存空对象，设置一个短的过期时间，防止频繁穿透
+                // 这里使用 set 方法，而不是 setWithLogicalExpire，因为是真实的不存在
+                stringRedisTemplate.opsForValue().set(key, "null", RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
+                return null; // 数据库和缓存都不存在，返回空
+            }
+
+            // 数据库存在数据，将其写入Redis（首次写入，设置逻辑过期时间）
+            // 这里需要调用 setWithLogicalExpire，因为它会把数据和逻辑过期时间一起存
+            this.setWithLogicalExpire(key, r, time, unit);
+            return r; // 返回从数据库查到的数据
         }
         //命中 反序列化
         RedisData redisData = JSONUtil.toBean(json, RedisData.class);
@@ -164,6 +177,114 @@ public class CacheClient {
     }
 
     /**
+     * 互斥锁解决缓存击穿
+     *
+     * @param keyPrefix    缓存key前缀
+     * @param id           查询id
+     * @param type         返回类型
+     * @param dbFallback   数据库查询函数
+     * @param time         缓存过期时间
+     * @param unit         时间单位
+     * @param lockKeyPrefix 锁key前缀
+     * @return 查询结果
+     */
+    public <R, ID> R queryWithMutex(
+            String keyPrefix,
+            ID id,
+            Class<R> type,
+            Function<ID, R> dbFallback,
+            Long time,
+            TimeUnit unit,
+            String lockKeyPrefix) {
+
+        String key = keyPrefix + id;
+        String lockKey = lockKeyPrefix + id;
+        String threadName = Thread.currentThread().getName();
+
+        //log.info("🔍 [互斥锁缓存] 开始查询 - Key: {}, Thread: {}", key, threadName);
+
+        // 从redis中查询
+        String json = stringRedisTemplate.opsForValue().get(key);
+
+        // 判断是否存在
+        if (StringUtils.isNotEmpty(json)) {
+            //log.info("✅ [缓存命中] Key: {}, Thread: {}", key, threadName);
+            return JSONUtil.toBean(json, type);
+        }
+
+        // 判断空值（缓存穿透保护）
+        if ("".equals(json)) {
+            //log.info("🚫 [空值缓存命中] Key: {}, Thread: {}", key, threadName);
+            return null;
+        }
+
+        //log.info("❌ [缓存未命中] 准备获取互斥锁 - Key: {}, LockKey: {}, Thread: {}", key, lockKey, threadName);
+
+        // 实现缓存重建 - 获取互斥锁
+        R result = null;
+        boolean lockAcquired = false;
+
+        try {
+            boolean isLock = tryLock(lockKey);
+            lockAcquired = isLock;
+
+            // 判断是否获取锁成功
+            if (!isLock) {
+                //log.info("🔒 [获取锁失败] 等待重试 - LockKey: {}, Thread: {}", lockKey, threadName);
+                // 获取失败，休眠并重试
+                Thread.sleep(50);
+                return queryWithMutex(keyPrefix, id, type, dbFallback, time, unit, lockKeyPrefix);
+            }
+
+            //log.info("🔓 [获取锁成功] 开始缓存重建 - LockKey: {}, Thread: {}", lockKey, threadName);
+
+            // 获取锁成功，再次检查缓存（双重检查）
+            json = stringRedisTemplate.opsForValue().get(key);
+            if (StringUtils.isNotEmpty(json)) {
+                //log.info("✅ [双重检查缓存命中] Key: {}, Thread: {}", key, threadName);
+                return JSONUtil.toBean(json, type);
+            }
+
+            //log.info("🗄️ [查询数据库] Key: {}, Thread: {}", key, threadName);
+            // 查询数据库
+            long dbStartTime = System.currentTimeMillis();
+            result = dbFallback.apply(id);
+            long dbEndTime = System.currentTimeMillis();
+
+            // 模拟重建延时（可选，生产环境可删除）
+            Thread.sleep(200);
+
+            if (result == null) {
+                //log.info("🚫 [数据库无数据] 缓存空值 - Key: {}, Thread: {}, 查询耗时: {}ms",
+                        //key, threadName, (dbEndTime - dbStartTime));
+                // 数据库不存在，缓存空值防止缓存穿透
+                stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
+                return null;
+            }
+
+            // 数据库存在，写入redis
+            // 添加随机时间防止缓存雪崩（在原时间基础上增加0-50%的随机时间）
+            long randomTime = time + (long) (Math.random() * time * 0.5);
+            stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(result), randomTime, unit);
+
+            //log.info("💾 [缓存重建完成] Key: {}, Thread: {}, 查询耗时: {}ms, 缓存TTL: {}{}",
+                    //key, threadName, (dbEndTime - dbStartTime), randomTime, unit.toString().toLowerCase());
+
+        } catch (InterruptedException e) {
+            //log.error("❌ [缓存重建中断] Key: {}, Thread: {}, Error: {}", key, threadName, e.getMessage());
+            throw new RuntimeException("缓存重建被中断", e);
+        } finally {
+            // 释放互斥锁
+            if (lockAcquired) {
+                unLock(lockKey);
+                //log.info("🔓 [释放锁成功] LockKey: {}, Thread: {}", lockKey, threadName);
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * 简易线程池
      */
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
@@ -175,8 +296,11 @@ public class CacheClient {
      * @return boolean
      */
     private boolean tryLock(String key) {
+        String threadName = Thread.currentThread().getName();
         Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", LOCK_SHOP_TTL, TimeUnit.SECONDS);
-        return BooleanUtil.isTrue(flag);
+        boolean result = BooleanUtil.isTrue(flag);
+        //log.debug("🔐 [尝试获取锁] LockKey: {}, Thread: {}, Result: {}", key, threadName, result ? "成功" : "失败");
+        return result;
     }
 
     /**
@@ -185,6 +309,10 @@ public class CacheClient {
      * @param key 关键
      */
     private void unLock(String key) {
+        String threadName = Thread.currentThread().getName();
         stringRedisTemplate.delete(key);
+        //log.debug("🔓 [释放锁] LockKey: {}, Thread: {}", key, threadName);
     }
+
+
 }

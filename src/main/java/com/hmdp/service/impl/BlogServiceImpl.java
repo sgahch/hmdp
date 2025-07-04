@@ -44,7 +44,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     private StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public Result queryHotBlog(Integer current) {
+    public Result queryHotBlog(Integer current) {//该方法作用：查询热门博客
         // 根据用户查询
         Page<Blog> page = query()
                 .orderByDesc("liked")
@@ -146,7 +146,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         return Result.ok(blog.getId());
     }
     @Override
-    public Result queryBlogOfFollow(Long max, Integer offset) {
+    public Result queryBlogOfFollow(Long max, Integer offset) {//该方法作用：查询关注用户的博客
         //获取当前用户
         UserDTO user = UserHolder.getUser();
         //查询收件箱
@@ -188,13 +188,13 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         return Result.ok(scrollResult);
     }
 
-    private void queryBlogUser(Blog blog) {
+    private void queryBlogUser(Blog blog) {//该方法作用：查询blog的用户
         Long userId = blog.getUserId();
         User user = userService.getById(userId);
         blog.setName(user.getNickName());
         blog.setIcon(user.getIcon());
     }
-    private void isBlogLiked(Blog blog) {
+    private void isBlogLiked(Blog blog) {//该方法作用：判断当前用户是否点赞
         //获取当前登陆用户
         UserDTO user = UserHolder.getUser();
         if (user==null){
@@ -208,3 +208,4 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     }
 
 }
+

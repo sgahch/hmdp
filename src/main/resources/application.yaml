@@ -7,11 +7,13 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&serverTimezone=UTC
     username: root
-    password: "001020"
+    password: 123456
   redis:
     host: localhost
     port: 6379
-    password: "001020"
+    password: 123456 # 如果Redis没有密码，请留空或删除此行
+    timeout: 10000ms
+#    连接池
     lettuce:
       pool:
         max-active: 10
@@ -20,8 +22,47 @@ spring:
         time-between-eviction-runs: 10s
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+# 自定义配置
+hmdp:
+  upload:
+    # 图片上传目录，使用现有的nginx目录
+    image-dir: C:/Users/Ynchen/Desktop/hmdp/nginx-1.18.0/html/hmdp/imgs
+    # nginx访问路径前缀
+    nginx-prefix: /hmdp/imgs
+
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
 logging:
   level:
+    # 核心业务包，保持 DEBUG 级别，以便您能看到业务代码中的详细日志
     com.hmdp: debug
+
+    # 降低Spring Boot、Tomcat、Hibernate、MyBatis等框架的日志级别
+    root: info # 默认的root级别设置为info，只显示INFO, WARN, ERROR级别的日志
+
+    # 降低Spring框架的日志级别
+    org.springframework: info
+    org.springframework.boot: info
+    org.springframework.web: info
+    org.springframework.data: info
+
+    # 降低Tomcat相关的日志级别
+    org.apache.catalina: info
+    org.apache.coyote: info
+    org.apache.tomcat: info
+
+    # 降低MyBatis-Plus和MyBatis的日志级别（除非您需要看SQL执行细节）
+    com.baomidou.mybatisplus: info
+    org.mybatis: info
+
+    # 降低Redis客户端（Lettuce/Redisson）的日志级别
+    io.lettuce: info
+    org.redisson: info
+
+    # JMX相关的日志，这些通常是开发工具连接时产生的，可以降低
+    javax.management: warn
+    sun.rmi: warn

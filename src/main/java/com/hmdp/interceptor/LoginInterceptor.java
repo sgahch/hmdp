@@ -27,13 +27,20 @@ public class LoginInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String requestURI = request.getRequestURI();
+        System.out.println("🔐 [LoginInterceptor] 检查登录状态: " + requestURI);
+
         //获取用户
-        if (UserHolder.getUser() == null) {
+        UserDTO user = UserHolder.getUser();
+        if (user == null) {
             //不存在用户 拦截
+            System.out.println("❌ [LoginInterceptor] 用户未登录，拦截请求: " + requestURI);
             response.setStatus(401);
             return false;
         }
+
         //存在用户放行
+        System.out.println("✅ [LoginInterceptor] 用户已登录，放行请求: " + requestURI + ", 用户ID: " + user.getId());
         return true;
     }
 

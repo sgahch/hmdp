@@ -44,8 +44,8 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         if (isFollow) {
             //关注 新增数据
             Follow follow=new Follow();
-            follow.setFollowUserId(followUserId);
-            follow.setUserId(id);
+            follow.setFollowUserId(followUserId);//受关注者
+            follow.setUserId(id);//关注者
             boolean isSuccess = save(follow);
             if (isSuccess){
                 String key="follows:"+id;
@@ -59,7 +59,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
             );
             if (isSuccess) {
                 String key="follows:"+id;
-                stringRedisTemplate.opsForSet().remove(key,followUserId);
+                stringRedisTemplate.opsForSet().remove(key,followUserId.toString());
             }
         }
         return Result.ok();

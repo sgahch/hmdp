@@ -55,7 +55,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             //手机号不符合
             return Result.fail("手机号格式错误");
         }
-        //手机号符合,生成验证码
+        //手机号符合,生成长度为6的验证码
         String code = RandomUtil.randomNumbers(6);
         /*//保存验证码到session
         session.setAttribute("code", code);*/
@@ -108,6 +108,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //设置过期时间
         stringRedisTemplate.expire(LOGIN_USER_KEY + token, LOGIN_USER_TTL, TimeUnit.MINUTES);
         return Result.ok(token);
+    }
+
+    @Override
+    public Result logout() {
+        //获取token
+        String token = UserHolder.getUser().getId().toString();
+        //删除redis中的用户信息
+        stringRedisTemplate.delete(LOGIN_USER_KEY + token);
+        return Result.ok();
     }
 
     @Override

@@ -28,29 +28,44 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String requestURI = request.getRequestURI();
+        System.out.println("🔄 [RefreshTokenInterceptor] 拦截请求: " + requestURI);
+
         //从请求头中获取token
         String token = request.getHeader("authorization");
+        System.out.println("🔑 [RefreshTokenInterceptor] Token: " + (token != null ? "存在" : "不存在"));
+
         if (StringUtils.isEmpty(token)) {
             //不存在token
+            System.out.println("❌ [RefreshTokenInterceptor] Token为空，跳过处理");
             return true;
         }
+
         //从redis中获取用户
-        Map<Object, Object> userMap =
-                stringRedisTemplate.opsForHash()
-                        .entries(RedisConstants.LOGIN_USER_KEY + token);
+        String redisKey = RedisConstants.LOGIN_USER_KEY + token;
+        Map<Object, Object> userMap = stringRedisTemplate.opsForHash().entries(redisKey);
+
         //用户不存在
         if (userMap.isEmpty()) {
+            System.out.println("❌ [RefreshTokenInterceptor] Redis中未找到用户信息，key: " + redisKey);
             return true;
         }
+
         //hash转UserDTO存入ThreadLocal
-        UserHolder.saveUser(BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false));
+        UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false);
+        UserHolder.saveUser(userDTO);
+        System.out.println("✅ [RefreshTokenInterceptor] 用户信息已保存到ThreadLocal，用户ID: " + userDTO.getId());
+
         //token续命
-        stringRedisTemplate.expire(RedisConstants.LOGIN_USER_KEY + token, RedisConstants.LOGIN_USER_TTL, TimeUnit.MINUTES);
+        stringRedisTemplate.expire(redisKey, RedisConstants.LOGIN_USER_TTL, TimeUnit.MINUTES);
+        System.out.println("⏰ [RefreshTokenInterceptor] Token已续期: " + RedisConstants.LOGIN_USER_TTL + "分钟");
+
         return true;
     }
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        System.out.println("🧹 [RefreshTokenInterceptor] 清理ThreadLocal用户信息");
         UserHolder.removeUser();
     }
 }

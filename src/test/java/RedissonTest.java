@@ -17,7 +17,7 @@ public class RedissonTest {
 
     private RLock rLock;
     @BeforeEach
-    private void getRlock(){
+    public void getRlock(){
         rLock=redissonClient.getLock("lock");
     }
 

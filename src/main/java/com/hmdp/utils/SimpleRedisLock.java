@@ -1,8 +1,6 @@
 package com.hmdp.utils;
 
 import cn.hutool.core.lang.UUID;
-import com.baomidou.mybatisplus.core.toolkit.StringUtils;
-import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -19,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 public class SimpleRedisLock implements ILock {
     private String name;
     private StringRedisTemplate stringRedisTemplate;
-    private static final String KET_PREFIX="lock:";
+    private static final String KEY_PREFIX="lock:";
     private static final String ID_PREFIX= UUID.randomUUID().toString(true)+"-";
     private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
 
@@ -40,7 +38,7 @@ public class SimpleRedisLock implements ILock {
         //获取锁
         Boolean isSuccess = stringRedisTemplate
                 .opsForValue()
-                .setIfAbsent(KET_PREFIX + name
+                .setIfAbsent(KEY_PREFIX + name
                         , threadId
                         , timeoutSec
                         , TimeUnit.SECONDS);
@@ -53,15 +51,15 @@ public class SimpleRedisLock implements ILock {
         /*//获取线程标识
         String threadId =ID_PREFIX+ Thread.currentThread().getId();
         //获取锁中标识
-        String id = stringRedisTemplate.opsForValue().get(KET_PREFIX + name);
+        String id = stringRedisTemplate.opsForValue().get(KEY_PREFIX + name);
         //判断时候一致
         if (StringUtils.equals(id,threadId)){
             //一致 释放锁
-            stringRedisTemplate.delete(KET_PREFIX + name);
+            stringRedisTemplate.delete(KEY_PREFIX + name);
         }*/
         //使用lua脚本保证操作原子性
         stringRedisTemplate.execute(UNLOCK_SCRIPT
-                , Collections.singletonList(KET_PREFIX+name)
+                , Collections.singletonList(KEY_PREFIX+name)
                 ,ID_PREFIX+Thread.currentThread().getId());
     }
 }

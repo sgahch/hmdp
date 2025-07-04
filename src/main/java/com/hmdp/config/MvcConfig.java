@@ -24,7 +24,16 @@ public class MvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        //登陆拦截器
+        System.out.println("🚀 [MvcConfig] 开始注册拦截器...");
+
+        //Token续命拦截器 - 优先级最高
+        registry
+                .addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate))
+                .addPathPatterns("/**")
+                .order(0);
+        System.out.println("✅ [MvcConfig] RefreshTokenInterceptor已注册 - order: 0, 拦截路径: /**");
+
+        //登陆拦截器 - 优先级较低
         registry
                 .addInterceptor(new LoginInterceptor())
                 .excludePathPatterns("/user/code"
@@ -36,10 +45,8 @@ public class MvcConfig implements WebMvcConfigurer {
                         , "/voucher/**"
                 )
                 .order(1);
-        //Token续命拦截器
-        registry
-                .addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate))
-                .addPathPatterns("/**")
-                .order(0);
+        System.out.println("✅ [MvcConfig] LoginInterceptor已注册 - order: 1, 排除路径: /user/code, /user/login, /blog/hot, /shop/**, /shop-type/**, /upload/**, /voucher/**");
+
+        System.out.println("🎯 [MvcConfig] 拦截器注册完成！执行顺序: RefreshTokenInterceptor(0) -> LoginInterceptor(1)");
     }
 }

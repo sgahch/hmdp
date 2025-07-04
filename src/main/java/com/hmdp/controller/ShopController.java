@@ -10,6 +10,9 @@ import com.hmdp.utils.SystemConstants;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -67,12 +70,16 @@ public class ShopController {
      */
     @GetMapping("/of/type")
     public Result queryShopByType(
-            @RequestParam("typeId") Integer typeId,
+            @RequestParam(value = "typeId", required = false) Integer typeId,
+            @RequestParam(value = "type", required = false) Integer type, // 兼容前端传递的type参数
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "x",required = false) Double x,
             @RequestParam(value = "y",required = false) Double y
     ) {
-        return shopService.queryShopByType(typeId,current,x,y);
+        // 兼容处理：优先使用typeId，如果没有则使用type
+        Integer finalTypeId = typeId != null ? typeId : type;
+        System.out.println("🔍 [商铺类型查询] typeId=" + finalTypeId + ", current=" + current + ", x=" + x + ", y=" + y);
+        return shopService.queryShopByType(finalTypeId, current, x, y);
     }
 
     /**
@@ -92,5 +99,43 @@ public class ShopController {
                 .page(new Page<>(current, SystemConstants.MAX_PAGE_SIZE));
         // 返回数据
         return Result.ok(page.getRecords());
+    }
+
+    /**
+     * 测试接口：查看数据库中的商铺类型分布
+     * @return 商铺类型统计
+     */
+    @GetMapping("/debug/types")
+    public Result debugShopTypes() {
+        // 查询所有商铺的类型分布
+        List<Shop> allShops = shopService.list();
+        System.out.println("📊 [调试] 数据库中总共有 " + allShops.size() + " 个商铺");
+
+        // 统计各类型的数量
+        Map<Long, Long> typeCount = allShops.stream()
+                .collect(Collectors.groupingBy(Shop::getTypeId, Collectors.counting()));
+
+        System.out.println("📈 [调试] 商铺类型分布：" + typeCount);
+
+        return Result.ok(typeCount);
+    }
+
+    /**
+     * 测试接口：检查Redis GEO数据
+     * @param typeId 商铺类型ID
+     * @return Redis GEO数据统计
+     */
+    @GetMapping("/debug/geo/{typeId}")
+    public Result debugGeoData(@PathVariable Integer typeId) {
+        return shopService.debugGeoData(typeId);
+    }
+
+    /**
+     * 初始化接口：将商铺地理位置数据导入Redis
+     * @return 初始化结果
+     */
+    @PostMapping("/init/geo")
+    public Result initGeoData() {
+        return shopService.initGeoData();
     }
 }

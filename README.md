@@ -214,7 +214,7 @@ mvn spring-boot:run
 ## 1.下载
 克隆完整项目
 ```git
-git clone https://github.com/cs001020/hmdp.git
+git clone https://github.com/sgahch/hmdp.git
 ```
 切换分支
 ```git

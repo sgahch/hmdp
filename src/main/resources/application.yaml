@@ -13,24 +13,55 @@ spring:
     port: 6379
     password: 123456 # 如果Redis没有密码，请留空或删除此行
     timeout: 10000ms
-#    连接池
+    #    连接池
     lettuce:
       pool:
         max-active: 10
         max-idle: 10
         min-idle: 1
         time-between-eviction-runs: 10s
+
+  # RabbitMQ配置
+  rabbitmq:
+    host: 192.168.182.128
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    # 连接配置
+    connection-timeout: 60000
+    # 消费者配置
+    listener:
+      simple:
+        # 手动确认消息
+        acknowledge-mode: manual
+        # 每次从队列中取出的消息数量
+        prefetch: 1
+        # 消费者线程数
+        concurrency: 1
+        max-concurrency: 3
+        # 重试配置
+        retry:
+          enabled: false  # 禁用自动重试，使用手动重试逻辑
+        # 默认重新入队
+        default-requeue-rejected: false
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
+    # 时间格式配置
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    serialization:
+      write-dates-as-timestamps: false # 禁用时间戳格式，使用字符串格式
   servlet:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+
 # 自定义配置
 hmdp:
   upload:
     # 图片上传目录，使用现有的nginx目录
-    image-dir: C:/Users/Ynchen/Desktop/hmdp/nginx-1.18.0/html/hmdp/imgs
+    image-dir: C:/Users/Ynchen/Desktop/hmdp-orgin/nginx-1.18.0/html/hmdp/imgs
     # nginx访问路径前缀
     nginx-prefix: /hmdp/imgs
 

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试用户编辑功能</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <style>
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="container">
+    <h1>用户编辑功能测试</h1>
+
+    <!-- 登录状态检查 -->
+    <div class="test-section">
+      <h3>1. 登录状态检查</h3>
+      <el-button @click="checkLoginStatus" type="primary">检查登录状态</el-button>
+      <div class="result" v-if="loginResult">
+        <strong>结果:</strong> {{loginResult}}
+      </div>
+    </div>
+
+    <!-- 获取用户信息 -->
+    <div class="test-section">
+      <h3>2. 获取用户信息</h3>
+      <el-button @click="getUserInfo" type="primary">获取用户信息</el-button>
+      <div class="result" v-if="userInfo">
+        <strong>用户信息:</strong>
+        <pre>{{JSON.stringify(userInfo, null, 2)}}</pre>
+      </div>
+    </div>
+
+    <!-- 测试更新昵称 -->
+    <div class="test-section">
+      <h3>3. 测试更新昵称</h3>
+      <el-input v-model="newNickName" placeholder="输入新昵称" style="width: 200px;"></el-input>
+      <el-button @click="updateNickName" type="primary" style="margin-left: 10px;">更新昵称</el-button>
+      <div class="result" v-if="updateResult">
+        <strong>更新结果:</strong> {{updateResult}}
+      </div>
+    </div>
+
+    <!-- 测试更新用户详细信息 -->
+    <div class="test-section">
+      <h3>4. 测试更新用户详细信息</h3>
+      <div style="margin-bottom: 10px;">
+        <label>城市: </label>
+        <el-input v-model="newCity" placeholder="输入城市" style="width: 150px;"></el-input>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label>个人介绍: </label>
+        <el-input v-model="newIntroduce" placeholder="输入个人介绍" style="width: 200px;"></el-input>
+      </div>
+      <el-button @click="updateUserInfo" type="primary">更新详细信息</el-button>
+      <div class="result" v-if="infoUpdateResult">
+        <strong>更新结果:</strong> {{infoUpdateResult}}
+      </div>
+    </div>
+
+    <!-- 快速登录 -->
+    <div class="test-section" v-if="!isLoggedIn">
+      <h3>快速登录</h3>
+      <p style="color: #666;">如果未登录，请先登录</p>
+      <el-button @click="goToLogin" type="success">前往登录页面</el-button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script> <!-- 修复：从CDN加载Vue.js，以确保Vue对象被正确定义 -->
+<script src="./js/axios.min.js"></script>
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script>
+  const app = new Vue({
+    el: "#app",
+    data: {
+      loginResult: '',
+      userInfo: null,
+      newNickName: '',
+      updateResult: '',
+      newCity: '',
+      newIntroduce: '',
+      infoUpdateResult: '',
+      isLoggedIn: false
+    },
+    created() {
+      this.checkLoginStatus();
+      // 在页面创建时就获取用户信息，确保显示最新数据
+      this.getUserInfo();
+    },
+    methods: {
+      $message: emmmm,
+      checkLoginStatus() {
+        const token = sessionStorage.getItem("token");
+        if (token) {
+          this.loginResult = "已登录，Token: " + token.substring(0, 20) + "...";
+          this.isLoggedIn = true;
+        } else {
+          this.loginResult = "未登录，请先登录";
+          this.isLoggedIn = false;
+        }
+      },
+
+      getUserInfo() {
+        // 确保这里的请求路径与你的后端API一致，如果Nginx代理了/api，这里可能需要/api/user/me
+        // 根据你之前的Nginx配置，前端请求直接/user/me应该会被Nginx转发为/user/me到后端
+        // 但如果你前端HTML是直接访问，没有Nginx代理，可能需要调整
+        axios.get("/user/me")
+                .then(response => {
+                  console.log("获取用户信息响应:", response.data);
+                  if (response.data && response.data.success) {
+                    this.userInfo = response.data.data;
+                    // 确保在获取到用户信息后，更新输入框中的值，方便编辑
+                    this.newNickName = this.userInfo.nickName || '';
+                    this.newCity = this.userInfo.city || '';
+                    this.newIntroduce = this.userInfo.introduce || '';
+                  } else {
+                    this.userInfo = "获取失败: " + (response.data?.errorMsg || "未知错误");
+                    // 如果获取失败，也清空输入框，避免显示旧数据
+                    this.newNickName = '';
+                    this.newCity = '';
+                    this.newIntroduce = '';
+                  }
+                })
+                .catch(err => {
+                  console.error("获取用户信息失败:", err);
+                  this.userInfo = "请求失败: " + (err.response?.data?.errorMsg || err.message);
+                  // 如果请求失败，也清空输入框
+                  this.newNickName = '';
+                  this.newCity = '';
+                  this.newIntroduce = '';
+                });
+      },
+
+      updateNickName() {
+        if (!this.newNickName.trim()) {
+          this.$message.error('请输入昵称');
+          return;
+        }
+
+        // 确保这里的请求路径与你的后端API一致
+        axios.put("/user/update", {
+          nickName: this.newNickName.trim()
+        })
+                .then(response => {
+                  console.log("更新昵称响应:", response.data);
+                  if (response.data && response.data.success) {
+                    this.updateResult = "昵称更新成功！数据: " + JSON.stringify(response.data);
+                    this.$message.success('昵称更新成功');
+                    // 成功后重新获取用户信息，刷新页面显示
+                    this.getUserInfo();
+                  } else {
+                    this.updateResult = "更新失败: " + (response.data?.errorMsg || "未知错误");
+                    this.$message.error('更新失败: ' + (response.data?.errorMsg || "未知错误"));
+                  }
+                })
+                .catch(err => {
+                  console.error("更新昵称失败:", err);
+                  this.updateResult = "请求失败: " + (err.response?.data?.errorMsg || err.message);
+                  this.$message.error('请求失败: ' + (err.response?.data?.errorMsg || err.message));
+                });
+      },
+
+      updateUserInfo() {
+        const updateData = {};
+        // 只有当输入框有值时才添加到更新数据中，避免清空未修改的字段
+        if (this.newCity.trim()) {
+          updateData.city = this.newCity.trim();
+        } else if (this.userInfo && this.userInfo.city) {
+          // 如果用户清空了城市输入框，但之前有值，则表示要清空城市
+          updateData.city = "";
+        }
+
+        if (this.newIntroduce.trim()) {
+          updateData.introduce = this.newIntroduce.trim();
+        } else if (this.userInfo && this.userInfo.introduce) {
+          // 如果用户清空了介绍输入框，但之前有值，则表示要清空介绍
+          updateData.introduce = "";
+        }
+
+        // 如果没有要更新的字段，则提示
+        if (Object.keys(updateData).length === 0) {
+          this.$message.error('请至少填写一个字段或修改现有字段');
+          return;
+        }
+
+        // 确保这里的请求路径与你的后端API一致
+        axios.put("/user/info/update", updateData)
+                .then(response => {
+                  console.log("更新详细信息响应:", response.data);
+                  if (response.data && response.data.success) {
+                    this.infoUpdateResult = "详细信息更新成功！数据: " + JSON.stringify(response.data);
+                    this.$message.success('详细信息更新成功');
+                    // *** 关键修改：成功后重新获取用户信息，刷新页面显示 ***
+                    this.getUserInfo();
+                  } else {
+                    this.infoUpdateResult = "更新失败: " + (response.data?.errorMsg || "未知错误");
+                    this.$message.error('更新失败: ' + (response.data?.errorMsg || "未知错误"));
+                  }
+                })
+                .catch(err => {
+                  console.error("更新详细信息失败:", err);
+                  this.infoUpdateResult = "请求失败: " + (err.response?.data?.errorMsg || err.message);
+                  this.$message.error('请求失败: ' + (err.response?.data?.errorMsg || err.message));
+                });
+      },
+
+      goToLogin() {
+        window.location.href = "login.html";
+      }
+    }
+  });
+</script>
+</body>
+</html>

@@ -21,7 +21,7 @@
   </div>
   <div class="edit-container">
     <div class="info-box">
-      <div class="info-item">
+      <div class="info-item" @click="editAvatar">
         <div class="info-label">头像</div>
         <div class="info-btn">
           <img width="35" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
@@ -29,7 +29,7 @@
         </div>
       </div>
       <div class="divider"></div>
-      <div class="info-item">
+      <div class="info-item" @click="editNickName">
         <div class="info-label">昵称</div>
         <div class="info-btn">
           <div>{{user.nickName}}</div>
@@ -39,7 +39,7 @@
         </div>
       </div>
       <div class="divider"></div>
-      <div class="info-item">
+      <div class="info-item" @click="editIntroduce">
         <div class="info-label">个人介绍</div>
         <div class="info-btn">
           <div style="overflow: hidden; width: 150px;text-align: right">{{info.introduce || '介绍一下自己'}}</div>
@@ -50,15 +50,15 @@
       </div>
     </div>
     <div class="info-box">
-      <div class="info-item">
+      <div class="info-item" @click="editGender">
         <div class="info-label">性别</div>
         <div class="info-btn">
-          <div>{{info.gender || '选择'}}</div>
+          <div>{{getGenderText(info.gender)}}</div>
           <div><i class="el-icon-arrow-right"></i></div>
         </div>
       </div>
       <div class="divider"></div>
-      <div class="info-item">
+      <div class="info-item" @click="editCity">
         <div class="info-label">城市</div>
         <div class="info-btn">
           <div>{{info.city || '选择'}}</div>
@@ -66,7 +66,7 @@
         </div>
       </div>
       <div class="divider"></div>
-      <div class="info-item">
+      <div class="info-item" @click="editBirthday">
         <div class="info-label">生日</div>
         <div class="info-btn">
           <div>{{info.birthday || '添加'}}</div>
@@ -111,6 +111,7 @@
     },
     created() {
       this.checkLogin();
+      this.loadUserInfo();
     },
     methods: {
       checkLogin() {
@@ -118,15 +119,203 @@
         axios.get("/user/me")
         .then(({data}) => {
           this.user = data;
-          this.info = JSON.parse(sessionStorage.getItem("userInfo")) || {}
         })
         .catch(err => {
           this.$message.error(err);
           setTimeout(() => location.href = "login.html", 1000)
         })
       },
+      loadUserInfo() {
+        // 从sessionStorage获取用户详细信息，如果没有则使用空对象
+        try {
+          const userInfo = sessionStorage.getItem("userInfo");
+          this.info = userInfo ? JSON.parse(userInfo) : {};
+        } catch (err) {
+          console.log("用户信息加载失败:", err);
+          this.info = {};
+        }
+      },
       goBack(){
         history.back();
+      },
+      // 编辑头像
+      editAvatar() {
+        // 创建文件输入元素
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.style.display = 'none';
+
+        input.onchange = (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          // 检查文件类型
+          if (!file.type.startsWith('image/')) {
+            this.$message.error('请选择图片文件');
+            return;
+          }
+
+          // 检查文件大小 (5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            this.$message.error('图片大小不能超过5MB');
+            return;
+          }
+
+          this.uploadAvatar(file);
+        };
+
+        document.body.appendChild(input);
+        input.click();
+        document.body.removeChild(input);
+      },
+
+      // 上传头像
+      uploadAvatar(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const config = {
+          headers: {
+            'Content-Type': 'multipart/form-data;boundary=' + new Date().getTime()
+          }
+        };
+
+        this.$message.info('正在上传头像...');
+
+        // 使用专门的头像上传接口
+        axios.post('/user/avatar/upload', formData, config)
+        .then(response => {
+          if (response.data.success) {
+            this.$message.success('头像上传成功');
+            // 头像上传接口已经自动更新了数据库和缓存，直接刷新用户信息
+            this.checkLogin();
+          } else {
+            this.$message.error('上传失败: ' + response.data.errorMsg);
+          }
+        })
+        .catch(err => {
+          this.$message.error('上传失败: ' + (err.response?.data?.errorMsg || err.message));
+        });
+      },
+      // 编辑昵称
+      editNickName() {
+        this.$prompt('请输入昵称', '编辑昵称', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          inputValue: this.user.nickName,
+          inputValidator: (value) => {
+            if (!value || value.trim().length === 0) {
+              return '昵称不能为空';
+            }
+            if (value.length > 20) {
+              return '昵称不能超过20个字符';
+            }
+            return true;
+          }
+        }).then(({ value }) => {
+          this.updateUser({ nickName: value.trim() });
+        }).catch(() => {});
+      },
+      // 编辑个人介绍
+      editIntroduce() {
+        this.$prompt('请输入个人介绍', '编辑个人介绍', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          inputValue: this.info.introduce,
+          inputType: 'textarea',
+          inputValidator: (value) => {
+            if (value && value.length > 128) {
+              return '个人介绍不能超过128个字符';
+            }
+            return true;
+          }
+        }).then(({ value }) => {
+          this.updateUserInfo({ introduce: value });
+        }).catch(() => {});
+      },
+      // 编辑性别
+      editGender() {
+        this.$confirm('请选择性别', '编辑性别', {
+          distinguishCancelAndClose: true,
+          confirmButtonText: '男',
+          cancelButtonText: '女',
+          type: 'info'
+        }).then(() => {
+          this.updateUserInfo({ gender: false }); // false表示男
+        }).catch(action => {
+          if (action === 'cancel') {
+            this.updateUserInfo({ gender: true }); // true表示女
+          }
+        });
+      },
+      // 编辑城市
+      editCity() {
+        this.$prompt('请输入城市', '编辑城市', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          inputValue: this.info.city
+        }).then(({ value }) => {
+          this.updateUserInfo({ city: value });
+        }).catch(() => {});
+      },
+      // 编辑生日
+      editBirthday() {
+        this.$prompt('请输入生日 (格式: YYYY-MM-DD)', '编辑生日', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          inputValue: this.info.birthday,
+          inputValidator: (value) => {
+            if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              return '请输入正确的日期格式 (YYYY-MM-DD)';
+            }
+            return true;
+          }
+        }).then(({ value }) => {
+          this.updateUserInfo({ birthday: value });
+        }).catch(() => {});
+      },
+      // 更新用户基本信息
+      updateUser(userData) {
+        axios.put("/user/update", userData)
+        .then((response) => {
+          if (response.data.success) {
+            this.$message.success('更新成功');
+            // 更新本地数据
+            Object.assign(this.user, userData);
+            // 重新获取最新的用户信息
+            this.checkLogin();
+          } else {
+            this.$message.error('更新失败: ' + response.data.errorMsg);
+          }
+        })
+        .catch(err => {
+          this.$message.error('更新失败: ' + (err.response?.data?.errorMsg || err.message));
+        });
+      },
+      // 更新用户详细信息
+      updateUserInfo(userInfoData) {
+        axios.put("/user/info/update", userInfoData)
+        .then((response) => {
+          if (response.data.success) {
+            this.$message.success('更新成功');
+            // 更新本地数据
+            Object.assign(this.info, userInfoData);
+            // 重新获取最新的用户详细信息
+            this.loadUserInfo();
+          } else {
+            this.$message.error('更新失败: ' + response.data.errorMsg);
+          }
+        })
+        .catch(err => {
+          this.$message.error('更新失败: ' + (err.response?.data?.errorMsg || err.message));
+        });
+      },
+      // 获取性别文本
+      getGenderText(gender) {
+        if (gender === true) return '女';
+        if (gender === false) return '男';
+        return '选择';
       }
     },
 

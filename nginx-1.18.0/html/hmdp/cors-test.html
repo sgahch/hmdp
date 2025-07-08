@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; white-space: pre-wrap; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 CORS测试页面</h1>
+        
+        <div class="section info">
+            <h2>📋 测试说明</h2>
+            <p>当前页面地址：<code id="currentOrigin"></code></p>
+            <p>目标后端地址：<code>http://localhost:8081</code></p>
+            <p>测试各种接口的CORS配置是否正确</p>
+        </div>
+
+        <div class="section">
+            <h2>🧪 CORS测试</h2>
+            <button onclick="testPublicAPI()">测试公开接口 (/blog/hot)</button>
+            <button onclick="testUserCode()">测试验证码接口 (/user/code)</button>
+            <button onclick="testShopAPI()">测试商店接口 (/shop-type/list)</button>
+            <button onclick="testProtectedAPI()">测试受保护接口 (/user/me)</button>
+            <div id="testResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 详细信息</h2>
+            <button onclick="checkCORSHeaders()">检查CORS响应头</button>
+            <div id="corsResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // 显示当前页面来源
+        document.getElementById('currentOrigin').textContent = window.location.origin;
+
+        // 测试公开接口
+        async function testPublicAPI() {
+            try {
+                console.log('🧪 测试公开接口 /blog/hot...');
+                
+                const response = await fetch('http://localhost:8081/blog/hot', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                showResult('testResult', {
+                    success: true,
+                    message: '公开接口测试成功',
+                    status: response.status,
+                    data: data
+                }, 'success');
+                
+                console.log('✅ 公开接口测试成功');
+                
+            } catch (error) {
+                showResult('testResult', {
+                    success: false,
+                    message: '公开接口测试失败',
+                    error: error.message
+                }, 'error');
+                
+                console.error('❌ 公开接口测试失败:', error);
+            }
+        }
+
+        // 测试验证码接口
+        async function testUserCode() {
+            try {
+                console.log('🧪 测试验证码接口...');
+                
+                const response = await fetch('http://localhost:8081/user/code?phone=13203094369', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                showResult('testResult', {
+                    success: true,
+                    message: '验证码接口测试成功',
+                    status: response.status,
+                    data: data
+                }, 'success');
+                
+                console.log('✅ 验证码接口测试成功');
+                
+            } catch (error) {
+                showResult('testResult', {
+                    success: false,
+                    message: '验证码接口测试失败',
+                    error: error.message
+                }, 'error');
+                
+                console.error('❌ 验证码接口测试失败:', error);
+            }
+        }
+
+        // 测试商店接口
+        async function testShopAPI() {
+            try {
+                console.log('🧪 测试商店接口...');
+                
+                const response = await fetch('http://localhost:8081/shop-type/list', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                showResult('testResult', {
+                    success: true,
+                    message: '商店接口测试成功',
+                    status: response.status,
+                    data: data
+                }, 'success');
+                
+                console.log('✅ 商店接口测试成功');
+                
+            } catch (error) {
+                showResult('testResult', {
+                    success: false,
+                    message: '商店接口测试失败',
+                    error: error.message
+                }, 'error');
+                
+                console.error('❌ 商店接口测试失败:', error);
+            }
+        }
+
+        // 测试受保护接口
+        async function testProtectedAPI() {
+            try {
+                console.log('🧪 测试受保护接口...');
+                
+                const response = await fetch('http://localhost:8081/user/me', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                showResult('testResult', {
+                    success: true,
+                    message: '受保护接口测试成功（应该返回401）',
+                    status: response.status,
+                    data: data
+                }, response.status === 401 ? 'success' : 'warning');
+                
+                console.log('✅ 受保护接口测试完成，状态:', response.status);
+                
+            } catch (error) {
+                showResult('testResult', {
+                    success: false,
+                    message: '受保护接口测试失败',
+                    error: error.message
+                }, 'error');
+                
+                console.error('❌ 受保护接口测试失败:', error);
+            }
+        }
+
+        // 检查CORS响应头
+        async function checkCORSHeaders() {
+            try {
+                console.log('🧪 检查CORS响应头...');
+                
+                const response = await fetch('http://localhost:8081/blog/hot', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                    'Access-Control-Max-Age': response.headers.get('Access-Control-Max-Age')
+                };
+                
+                showResult('corsResult', {
+                    success: true,
+                    message: 'CORS响应头检查完成',
+                    headers: corsHeaders,
+                    allHeaders: Object.fromEntries(response.headers.entries())
+                }, 'info');
+                
+                console.log('✅ CORS响应头检查完成');
+                
+            } catch (error) {
+                showResult('corsResult', {
+                    success: false,
+                    message: 'CORS响应头检查失败',
+                    error: error.message
+                }, 'error');
+                
+                console.error('❌ CORS响应头检查失败:', error);
+            }
+        }
+
+        // 显示结果
+        function showResult(elementId, result, type) {
+            const element = document.getElementById(elementId);
+            element.className = `section ${type}`;
+            element.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+        }
+
+        // 页面加载时显示信息
+        window.onload = function() {
+            console.log('🚀 CORS测试页面已加载');
+            console.log('当前来源:', window.location.origin);
+            console.log('目标后端:', 'http://localhost:8081');
+        };
+    </script>
+</body>
+</html>

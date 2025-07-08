@@ -98,11 +98,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String token = UUID.randomUUID().toString(true);
         //userDTO转map
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
-        Map<String, Object> map = BeanUtil.beanToMap(userDTO, new HashMap<>()
-                , CopyOptions.create().setIgnoreNullValue(true)
-                        .setFieldValueEditor(
-                                (name, value) -> value.toString()
-                        ));
+        // 【新增】将生成的token设置到UserDTO中，以便后续可以从ThreadLocal获取到
+        userDTO.setToken(token);
+
+        Map<String, Object> map = BeanUtil.beanToMap(userDTO, new HashMap<>(),
+                CopyOptions.create()
+                        .setIgnoreNullValue(true) // 忽略空值字段
+                        .setFieldValueEditor((fieldName, value) -> {
+                            // 确保值不为null才调用toString()
+                            if (value == null) {
+                                return null; // 或者返回 ""，取决于您希望Map中如何表示null
+                            }
+                            // 特别处理 LocalDateTime，将其格式化为字符串
+                            if (value instanceof LocalDateTime) {
+                                return ((LocalDateTime) value).format(DateTimeFormatter.ISO_DATE_TIME);
+                            }
+                            // 对于其他非空值，转换为字符串
+                            return value.toString();
+                        })
+        );
         //保存用户信息到redis
         stringRedisTemplate.opsForHash().putAll(LOGIN_USER_KEY + token, map);
         //设置过期时间
@@ -112,11 +126,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public Result logout() {
-        //获取token
-        String token = UserHolder.getUser().getId().toString();
-        //删除redis中的用户信息
-        stringRedisTemplate.delete(LOGIN_USER_KEY + token);
-        return Result.ok();
+        // 从 UserHolder 获取当前登录用户的完整 DTO 信息
+        UserDTO currentUser = UserHolder.getUser();
+
+        // 确保能获取到用户和其 Token
+        if (currentUser == null || currentUser.getToken() == null) {
+            // 这可能发生在 Token 已过期或已被手动删除，或者没有登录时尝试登出
+            return Result.fail("当前用户未登录或会话信息已失效。");
+        }
+
+        // 使用正确的 Token 来构建 Redis Key 并删除
+        String tokenKey = LOGIN_USER_KEY + currentUser.getToken();
+        stringRedisTemplate.delete(tokenKey);
+
+        // 清理 ThreadLocal 中的用户信息，防止内存泄漏和错误状态
+        UserHolder.removeUser();
+
+        return Result.ok("登出成功");
     }
 
     @Override
@@ -138,6 +164,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     public Result signCount() {
         //获取当前登陆用户
+
         Long id = UserHolder.getUser().getId();
         //获取日期
         LocalDateTime now = LocalDateTime.now();

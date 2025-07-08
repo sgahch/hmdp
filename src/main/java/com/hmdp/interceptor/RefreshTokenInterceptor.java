@@ -53,6 +53,8 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
 
         //hash转UserDTO存入ThreadLocal
         UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false);
+        // 确保将token设置到UserDTO中，以便logout等方法可以正确获取
+        userDTO.setToken(token);
         UserHolder.saveUser(userDTO);
         System.out.println("✅ [RefreshTokenInterceptor] 用户信息已保存到ThreadLocal，用户ID: " + userDTO.getId());
 

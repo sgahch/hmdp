@@ -16,15 +16,16 @@ local stockKey = 'seckill:stock:' .. voucherId
 --订单key
 local orderKey = 'seckill:order:' .. voucherId
 
---库存是否充足
---库存不足
-if (tonumber(redis.call('get', stockKey)) <= 0) then
+--获取库存
+local stock = redis.call('get', stockKey)
+--库存不存在或库存不足
+if (not stock or tonumber(stock) <= 0) then
     return 1
 end
 
 --判断用户是否下单
 --存在用户 禁止重复下单
-if (tonumber(redis.call('sismember', orderKey, userId)) == 1) then
+if (redis.call('sismember', orderKey, userId) == 1) then
     return 2
 end
 

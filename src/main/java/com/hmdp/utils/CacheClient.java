@@ -98,7 +98,7 @@ public class CacheClient {
         R r = dbFallback.apply(id);
         if (r == null) {
             //redis写入空值
-            this.set(key, "", CACHE_NULL_TTL, TimeUnit.SECONDS);
+            this.set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
             //数据库不存在 返回错误
             return null;
         }
